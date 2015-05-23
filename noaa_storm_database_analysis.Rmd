@@ -1,0 +1,6 @@
+---
+title: "Brief analysis of the NOAA Storm Database"
+author: "Valentine Savchenko"
+date: "Saturday, May 23, 2015"
+output: html_document
+---
