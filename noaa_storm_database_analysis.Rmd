@@ -5,9 +5,9 @@ date: "Saturday, May 23, 2015"
 output: html_document
 ---
 ### Synopsis
-The report gives brief summary on impact of sever weather events on public and economic of the U. S. between 1950 and 2011. From the public health perspective of view, heat-related sever weather events  become a significant problem. On the other hand, floods cost a lot and kill quite a lot of people.
+The report gives brief summary on impact of sever weather events on public and economic of the U. S. between 1950 and 2011.
 
-### Data processing
+### Initial analysis of data
 ```{r, setoptions, echo = F, warning = F}
 library(knitr)
 opts_chunk$set(echo = T)
@@ -29,6 +29,7 @@ The total number of observations in the set is
 ```{r}
 nrow(storm)
 ```
+#### Event types
 According to [NWS Directive 10-1605](http://www.ncdc.noaa.gov/stormevents/pd01016005curr.pdf) any event must fall into one of following categories
 ```{r}
 eventTypes <-
@@ -50,8 +51,7 @@ eventTypes <-
 ```
 The propotion of properly marked observations in the set is
 ```{r}
-storm$EVTYPE <- toupper(storm$EVTYPE)
-properlyMarked <- storm$EVTYPE %in% eventTypes
+properlyMarked <- toupper(storm$EVTYPE) %in% eventTypes
 sum(properlyMarked) / length(storm$EVTYPE) * 100
 ```
 Following events either aren't represented in the set or improperly marked
@@ -65,31 +65,58 @@ partiallyMarked <- storm$EVTYPE %in%
                         unique(storm$EVTYPE[!properlyMarked]), value = T)
 sum(partiallyMarked) / length(storm$EVTYPE) * 100
 ```
-For the purpose of the analysis improperly marked observaions are grouped under "ANY" section. The impact on public health is judged based on numbers of killed `FATALITIES` and injuried `INJURIES` people. The economic impact - on property damage `PROPDMG` and crop damage `CROPDMG` in billions of U. S. $.
+#### Economic damage
+The set contains two kinds of economical losts from severe weather events. The first one is property damage, which is divided between two columns `PROPDMG` and `PROPDMGEXP`. According to paragraph 2.7 of [NWS Directive 10-1605](http://www.ncdc.noaa.gov/stormevents/pd01016005curr.pdf). `PROMPDMG` must contain three significant digits. The proportion of observations that obey this recommendation is
+```{r}
+length(grep("^\\d\\.\\d\\d$", format(storm$PROPDMG, digits = 2, trim = T))) / length(storm$PROPDMG) * 100
+```
+`PROPDMGEXP` must contain alphabetical characters used to signify magnitude: "K" for thousands, "M" for millions, and "B" for billions. The proportion of observations that follow it is
+```{r}
+length(grep("K|M|B", storm$PROPDMGEXP)) / length(storm$PROPDMGEXP) * 100
+```
+Magnitude characters actually used in the set
 ```{r}
 library(dplyr)
-
+storm %>% group_by(PROPDMGEXP) %>% summarize(number = n())
+```
+Situation with the crop damage is quite similar
+```{r}
+length(grep("^\\d\\.\\d\\d$", format(storm$CROPDMG, digits = 2, trim = T))) / length(storm$CROPDMG) * 100
+storm %>% group_by(CROPDMGEXP) %>% summarize(number = n())
+```
+"H" and "h" alphabetic characters could be interpret as magnitude of 10^2. "m" - as simply "M". "0"-"8" - as 10^0, 10^1 etc. "", "+", "-" and "?" as 10^0.
+### Data processing
+The impact on public health is judged based on numbers of killed `FATALITIES` and injuried `INJURIES` people. The economic impact - on property damage `PROPDMG` and crop damage `CROPDMG` in billions of U. S. $.
+```{r}
 storm <- storm %>% select(EVTYPE, FATALITIES, INJURIES, PROPDMG, PROPDMGEXP, CROPDMG, CROPDMGEXP)
+storm$EVTYPE <- toupper(storm$EVTYPE)
 for (i in 1:length(eventTypes))
 {
   storm$EVTYPE[grep(paste0("^", eventTypes[i], "$"), storm$EVTYPE)] <- eventTypes[i]
 }
 storm$EVTYPE[!(storm$EVTYPE %in% eventTypes)] <- "ANY"
 
-storm$PROPDMG[storm$PROPDMGEXP == "K"] <- storm$PROPDMG[storm$PROPDMGEXP == "K"] * (10^3)
-storm$PROPDMG[storm$PROPDMGEXP == "M"] <- storm$PROPDMG[storm$PROPDMGEXP == "M"] * (10^6)
-storm$PROPDMG[storm$PROPDMGEXP == "B"] <- storm$PROPDMG[storm$PROPDMGEXP == "B"] * (10^9)
-storm$PROPDMG <- storm$PROPDMG / (10^9)
+storm$PROPDMGEXP[storm$PROPDMGEXP %in% c("B")] <- "9"
+storm$PROPDMGEXP[storm$PROPDMGEXP %in% c("m", "M")] <- "6"
+storm$PROPDMGEXP[storm$PROPDMGEXP %in% c("K")] <- "3"
+storm$PROPDMGEXP[storm$PROPDMGEXP %in% c("h", "H")] <- "2"
+storm$PROPDMGEXP[storm$PROPDMGEXP %in% c("", "+", "-", "?")] <- "1"
+stopifnot(sum(is.na(as.numeric(storm$PROPDMGEXP))) == 0)
 
-storm$CROPDMG[storm$CROPDMGEXP == "K"] <- storm$CROPDMG[storm$CROPDMGEXP == "K"] * (10^3)
-storm$CROPDMG[storm$CROPDMGEXP == "M"] <- storm$CROPDMG[storm$CROPDMGEXP == "M"] * (10^6)
-storm$CROPDMG[storm$CROPDMGEXP == "B"] <- storm$CROPDMG[storm$CROPDMGEXP == "B"] * (10^9)
-storm$CROPDMG <- storm$CROPDMG / (10^9)
+storm$CROPDMGEXP[storm$CROPDMGEXP %in% c("B")] <- "9"
+storm$CROPDMGEXP[storm$CROPDMGEXP %in% c("m", "M")] <- "6"
+storm$CROPDMGEXP[storm$CROPDMGEXP %in% c("k", "K")] <- "3"
+storm$CROPDMGEXP[storm$CROPDMGEXP %in% c("", "?")] <- "1"
+stopifnot(sum(is.na(as.numeric(storm$CROPDMGEXP))) == 0)
+
+for (i in 0:9)
+{
+  ii <- as.character(i)
+  storm$PROPDMG[storm$PROPDMGEXP == ii] <- storm$PROPDMG[storm$PROPDMGEXP == ii] * (10^i)
+  storm$CROPDMG[storm$CROPDMGEXP == ii] <- storm$CROPDMG[storm$CROPDMGEXP == ii] * (10^i)
+}
 
 storm <- storm %>% select(EVTYPE, FATALITIES, INJURIES, PROPDMG, CROPDMG)
-
-sum(storm$EVTYPE == "ANY") / length(storm$EVTYPE) * 100
-sum(storm$EVTYPE %in% eventTypes) / length(storm$EVTYPE) * 100
 ```
 ### Results
 Event types ordered by total number of people killed
