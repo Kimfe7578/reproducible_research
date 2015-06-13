@@ -29,6 +29,7 @@ The total number of observations in the set is
 ```{r}
 nrow(storm)
 ```
+
 #### Event types
 According to [NWS Directive 10-1605](http://www.ncdc.noaa.gov/stormevents/pd01016005curr.pdf) any event must fall into one of following categories
 ```{r}
@@ -49,7 +50,7 @@ eventTypes <-
     "VOLCANIC ASH",
     "WATERSPOUT", "WILDFIRE", "WINTER STORM", "WINTER WEATHER")
 ```
-The propotion of properly marked observations in the set is
+The proportion of properly marked observations in the set is
 ```{r}
 properlyMarked <- toupper(storm$EVTYPE) %in% eventTypes
 sum(properlyMarked) / length(storm$EVTYPE) * 100
@@ -58,15 +59,17 @@ Following events either aren't represented in the set or improperly marked
 ```{r}
 eventTypes[!(eventTypes %in% storm$EVTYPE)]
 ```
-The propotion of partially marked observations in the set is
+The proportion of partially marked observations in the set is
 ```{r}
 partiallyMarked <- storm$EVTYPE %in%
                    grep(paste(eventTypes, collapse = "|"),
                         unique(storm$EVTYPE[!properlyMarked]), value = T)
 sum(partiallyMarked) / length(storm$EVTYPE) * 100
 ```
+
+
 #### Economic damage
-The set contains two kinds of economical losts from severe weather events. The first one is property damage, which is divided between two columns `PROPDMG` and `PROPDMGEXP`. According to paragraph 2.7 of [NWS Directive 10-1605](http://www.ncdc.noaa.gov/stormevents/pd01016005curr.pdf). `PROMPDMG` must contain three significant digits. The proportion of observations that obey this recommendation is
+The set contains two kinds of economical loses from severe weather events. The first one is property damage, which is divided between two columns `PROPDMG` and `PROPDMGEXP`. According to paragraph 2.7 of [NWS Directive 10-1605](http://www.ncdc.noaa.gov/stormevents/pd01016005curr.pdf). `PROMPDMG` must contain three significant digits. The proportion of observations that obey this recommendation is
 ```{r}
 length(grep("^\\d\\.\\d\\d$", format(storm$PROPDMG, digits = 2, trim = T))) / length(storm$PROPDMG) * 100
 ```
@@ -85,14 +88,58 @@ length(grep("^\\d\\.\\d\\d$", format(storm$CROPDMG, digits = 2, trim = T))) / le
 storm %>% group_by(CROPDMGEXP) %>% summarize(number = n())
 ```
 "H" and "h" alphabetic characters could be interpret as magnitude of 10^2. "m" - as simply "M". "0"-"8" - as 10^0, 10^1 etc. "", "+", "-" and "?" as 10^0.
+
 ### Data processing
-The impact on public health is judged based on numbers of killed `FATALITIES` and injuried `INJURIES` people. The economic impact - on property damage `PROPDMG` and crop damage `CROPDMG` in billions of U. S. $.
+The impact on public health is judged based on numbers of killed `FATALITIES` and injured `INJURIES` people. The economic impact - on property damage `PROPDMG` and crop damage `CROPDMG` in billions of U. S. $.
 ```{r}
 storm <- storm %>% select(EVTYPE, FATALITIES, INJURIES, PROPDMG, PROPDMGEXP, CROPDMG, CROPDMGEXP)
 storm$EVTYPE <- toupper(storm$EVTYPE)
+# Mislabeled, but have high economic impact
+storm$EVTYPE <- gsub("TSTM", "THUNDERSTORM", storm$EVTYPE)
+storm$EVTYPE <- gsub("^STORM SURGE$", "STORM SURGE/TIDE", storm$EVTYPE)
+storm$EVTYPE <- gsub("^HURRICANE$", "HURRICANE/TYPHOON", storm$EVTYPE)
+storm$EVTYPE <- gsub("^RIVER FLOOD$", "COASTAL FLOOD", storm$EVTYPE)
+storm$EVTYPE <- gsub("^HURRICANE OPAL$", "HURRICANE/TYPHOON", storm$EVTYPE)
+storm$EVTYPE <- gsub("^WILD/FOREST FIRE$", "WILDFIRE", storm$EVTYPE)
+storm$EVTYPE <- gsub("^SEVERE THUNDERSTORM$", "THUNDERSTORM WIND", storm$EVTYPE)
+storm$EVTYPE <- gsub("^WILD FIRES$", "WILDFIRE", storm$EVTYPE)
+storm$EVTYPE <- gsub("^TYPHOON$", "HURRICANE/TYPHOON", storm$EVTYPE)
+storm$EVTYPE <- gsub("^LANDSLIDE$", "DEBRIS FLOW", storm$EVTYPE)
+storm$EVTYPE <- gsub("^HURRICANE ERIN$", "HURRICANE/TYPHOON", storm$EVTYPE)
+storm$EVTYPE <- gsub("^RIVER FLOODING$", "COASTAL FLOOD", storm$EVTYPE)
+storm$EVTYPE <- gsub("^MAJOR FLOOD$", "FLOOD", storm$EVTYPE)
+storm$EVTYPE <- gsub("^HURRICANE OPAL/HIGH WINDS$", "HURRICANE/TYPHOON", storm$EVTYPE)
+storm$EVTYPE <- gsub("^RECORD COLD$", "EXTREME COLD/WIND CHILL", storm$EVTYPE)
+storm$EVTYPE <- gsub("^HURRICANE EMILY$", "HURRICANE/TYPHOON", storm$EVTYPE)
+storm$EVTYPE <- gsub("^URBAN FLOOD$", "FLOOD", storm$EVTYPE)
+storm$EVTYPE <- gsub("^EROSION/CSTL FLOOD$", "COASTAL FLOOD", storm$EVTYPE)
+storm$EVTYPE <- gsub("^COASTAL  FLOODING/EROSION$", "COASTAL FLOOD", storm$EVTYPE)
+storm$EVTYPE <- gsub("^SNOW$", "HEAVY SNOW", storm$EVTYPE)
+storm$EVTYPE <- gsub("^ICE$", "ICE STORM", storm$EVTYPE)
+storm$EVTYPE <- gsub("^ASTRONOMICAL HIGH TIDE$", "COASTAL FLOOD", storm$EVTYPE)
+storm$EVTYPE <- gsub("^FREEZING RAIN$", "WINTER WEATHER", storm$EVTYPE)
+
+# Mislabeled, but have high healtht impact
+storm$EVTYPE <- gsub("^EXTREME COLD$", "EXTREME COLD/WIND CHILL", storm$EVTYPE)
+storm$EVTYPE <- gsub("^EXTREME HEAT$", "EXCESSIVE HEAT", storm$EVTYPE)
+storm$EVTYPE <- gsub("^FOG$", "FREEZING FOG", storm$EVTYPE)
+storm$EVTYPE <- gsub("^HEAVY SURF/HIGH SURF$", "HIGH SURF", storm$EVTYPE)
+storm$EVTYPE <- gsub("^COLD$", "EXTREME COLD/WIND CHILL", storm$EVTYPE)
+storm$EVTYPE <- gsub("^UNSEASONABLY WARM AND DRY$", "HEAT", storm$EVTYPE)
+storm$EVTYPE <- gsub("^URBAN/SML STREAM FLD$", "FLOOD", storm$EVTYPE)
+storm$EVTYPE <- gsub("^WIND$", "THUNDERSTORM WIND", storm$EVTYPE)
+storm$EVTYPE <- gsub("^EXTREME WINDCHILL$", "EXTREME COLD/WIND CHILL", storm$EVTYPE)
+storm$EVTYPE <- gsub("^RECORD/EXCESSIVE HEAT$", "EXCESSIVE HEAT", storm$EVTYPE)
+storm$EVTYPE <- gsub("^COLD AND SNOW$", "WINTER WEATHER", storm$EVTYPE)
+storm$EVTYPE <- gsub("^UNSEASONABLY WARM$", "WINTER WEATHER", storm$EVTYPE)
+storm$EVTYPE <- gsub("^HEAVY SURF$", "HIGH SURF", storm$EVTYPE)
+storm$EVTYPE <- gsub("^GLAZE$", "WINTER WEATHER", storm$EVTYPE)
+storm$EVTYPE <- gsub("^LOW TEMPERATURE$", "WINTER WEATHER", storm$EVTYPE)
+storm$EVTYPE <- gsub("^ICY ROADS$", "WINTER WEATHER", storm$EVTYPE)
+
 for (i in 1:length(eventTypes))
 {
-  storm$EVTYPE[grep(paste0("^", eventTypes[i], "$"), storm$EVTYPE)] <- eventTypes[i]
+  storm$EVTYPE[grep(paste0("^\\s*", eventTypes[i]), storm$EVTYPE)] <- eventTypes[i]
 }
 storm$EVTYPE[!(storm$EVTYPE %in% eventTypes)] <- "ANY"
 
@@ -115,6 +162,8 @@ for (i in 0:9)
   storm$PROPDMG[storm$PROPDMGEXP == ii] <- storm$PROPDMG[storm$PROPDMGEXP == ii] * (10^i)
   storm$CROPDMG[storm$CROPDMGEXP == ii] <- storm$CROPDMG[storm$CROPDMGEXP == ii] * (10^i)
 }
+storm$PROPDMG <- storm$PROPDMG / (10^9)
+storm$CROPDMG <- storm$CROPDMG / (10^9)
 
 storm <- storm %>% select(EVTYPE, FATALITIES, INJURIES, PROPDMG, CROPDMG)
 ```
@@ -131,7 +180,7 @@ healthImpact
 ```
 Even though tornado's impact on public health have been recorded for more than 60 years, just 15 years of collecting data on the heat-related events shows that this is quite serious problem. It probably was overlooked in the past due to inability to effectively collect data.
 
-Event types ordered by the total property damage in bilions of U. S. dollars
+Event types ordered by the total property damage in billions of U. S. dollars
 ```{r}
 economicImpact <- storm %>%
                 group_by(EVTYPE) %>%
